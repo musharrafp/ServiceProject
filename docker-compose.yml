@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  fastapi_service:
+    restart: always
+    build: fastapi_api_pg/
+    container_name: fastapi
+    ports:
+      - "8001:8005"
+    environment:
+      DATABASE: postgres
+      DB_DATABASE: p8_postgres_group_db
+      DB_HOST: postgres_service
+      DB_PORT: 5432
+      DB_PASS: 1
+      DJANGO_HOST: django
+      DJANGO_PORT: 7999
+
+    depends_on:
+      - postgres_service
+    command:
+      uvicorn main:app --port 8005 --host 0 --reload
+
+  django_service:
+    restart: always
+    build: task_django_p8/
+    hostname: django
+    container_name: django
+    ports:
+      - "8000:7999"
+    environment:
+      DEBUG: "true"
+      ES_HOST: elasticsearch_service
+      ES_PORT: 9200
+      DATABASE: mysql
+      DB_ENGINE: django.db.backends.mysql
+      DB_NAME: p8_mysql_group_db
+      DB_USER: root
+      DB_PASSWORD: 1
+      DB_HOST: mysql_service
+      DB_PORT: 3306
+
+    depends_on:
+      - mysql_service
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py makemigrations &&
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:7999"
+
+  postgres_service:
+    restart: always
+    image: postgres:alpine
+    container_name: p8_pg_db
+    environment:
+      POSTGRES_DB: p8_postgres_group_db
+      POSTGRES_PASSWORD: 1
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data/
+
+  mysql_service:
+    restart: always
+    image: mysql
+    container_name: p8_mysql_db
+    ports:
+        - "3306:3306"
+    environment:
+        MYSQL_DATABASE: p8_mysql_group_db
+        MYSQL_ROOT_PASSWORD: 1
+    volumes:
+      - my_data:/var/lib/mysql
+
+volumes:
+  pg_data:
+  my_data:
+#  redis_data:
+#  els_data:
